@@ -9,6 +9,7 @@ public class Player2D : MonoBehaviour
     public LayerMask groundLayer; //Linecastで判定するLayer
 
     public GameObject mainCamera;
+    public GameObject bullet;
     private Rigidbody2D rigidbody2D;
     private Animator anim;
     private bool isGrounded; //着地判定
@@ -51,6 +52,12 @@ public class Player2D : MonoBehaviour
         //結果をアニメータービューの変数へ反映する
         anim.SetBool("isJumping", isJumping);
         anim.SetBool("isFalling", isFalling);
+
+        if (Input.GetKeyDown("left ctrl"))
+        {
+            anim.SetTrigger("Shot");
+            Instantiate(bullet, transform.position + new Vector3(0f, 1.2f, 0f), transform.rotation);
+        }
     }
 
     void FixedUpdate()
