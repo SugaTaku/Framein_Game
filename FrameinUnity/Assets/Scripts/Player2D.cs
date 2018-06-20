@@ -5,6 +5,7 @@ public class Player2D : MonoBehaviour
 {
 
     public float speed = 4f; //歩くスピード
+    public GameObject mainCamera;
     private Rigidbody2D rigidbody2D;
     private Animator anim;
 
@@ -30,6 +31,26 @@ public class Player2D : MonoBehaviour
             transform.localScale = temp;
             //Wait→Dash
             anim.SetBool("Dash", true);
+
+            //画面中央から左に2移動した位置をユニティちゃんが超えたら
+            if (transform.position.x > mainCamera.transform.position.x - 2)
+            {
+                //カメラの位置を取得
+                Vector3 cameraPos = mainCamera.transform.position;
+                //ユニティちゃんの位置から右に2移動した位置を画面中央にする
+                cameraPos.x = transform.position.x + 2;
+                mainCamera.transform.position = cameraPos;
+            }
+            //カメラ表示領域の左下をワールド座標に変換
+            Vector2 min = Camera.main.ViewportToWorldPoint(new Vector2(0, 0));
+            //カメラ表示領域の右上をワールド座標に変換
+            Vector2 max = Camera.main.ViewportToWorldPoint(new Vector2(1, 1));
+            //ユニティちゃんのポジションを取得
+            Vector2 pos = transform.position;
+            //ユニティちゃんのx座標の移動範囲をClampメソッドで制限
+            pos.x = Mathf.Clamp(pos.x, min.x + 0.5f, max.x);
+            transform.position = pos;
+
             //左も右も入力していなかったら
         }
         else
