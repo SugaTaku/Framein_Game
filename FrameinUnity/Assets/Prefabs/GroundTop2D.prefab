@@ -21,8 +21,8 @@ GameObject:
   - component: {fileID: 4720753941013088}
   - component: {fileID: 212209367176981066}
   - component: {fileID: 61434534821976010}
-  m_Layer: 0
-  m_Name: FieldTop2D
+  m_Layer: 8
+  m_Name: GroundTop2D
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
