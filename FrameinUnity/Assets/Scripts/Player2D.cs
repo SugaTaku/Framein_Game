@@ -14,11 +14,14 @@ public class Player2D : MonoBehaviour
     private Animator anim;
     private bool isGrounded; //着地判定
 
+    private Renderer renderer;
+
     void Start()
     {
         //各コンポーネントをキャッシュしておく
         anim = GetComponent<Animator>();
         rigidbody2D = GetComponent<Rigidbody2D>();
+        renderer = GetComponent<Renderer>();
     }
 
     void Update()
@@ -104,5 +107,36 @@ public class Player2D : MonoBehaviour
             //Dash→Wait
             anim.SetBool("Dash", false);
         }
+    }
+
+    void OnCollisionEnter2D(Collision2D col)
+    {
+        //Enemyとぶつかった時にコルーチンを実行
+        if (col.gameObject.tag == "Enemy")
+        {
+            StartCoroutine("Damage");
+        }
+    }
+
+    IEnumerator Damage()
+    {
+        //レイヤーをPlayerDamageに変更
+        gameObject.layer = LayerMask.NameToLayer("PlayerDamaged");
+        //while文を10回ループ
+        int count = 10;
+        while (count > 0)
+        {
+            //透明にする
+            renderer.material.color = new Color(1, 1, 1, 0);
+            //0.05秒待つ
+            yield return new WaitForSeconds(0.05f);
+            //元に戻す
+            renderer.material.color = new Color(1, 1, 1, 1);
+            //0.05秒待つ
+            yield return new WaitForSeconds(0.05f);
+            count--;
+        }
+        //レイヤーをPlayerに戻す
+        gameObject.layer = LayerMask.NameToLayer("Player");
     }
 }

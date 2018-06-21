@@ -2590,7 +2590,7 @@ GameObject:
   - component: {fileID: 1349042265}
   - component: {fileID: 1349042264}
   - component: {fileID: 1349042263}
-  m_Layer: 0
+  m_Layer: 11
   m_Name: EnemyA2D
   m_TagString: Enemy
   m_Icon: {fileID: 0}
@@ -3963,7 +3963,7 @@ GameObject:
   - component: {fileID: 1990815100}
   - component: {fileID: 1990815099}
   - component: {fileID: 1990815102}
-  m_Layer: 0
+  m_Layer: 9
   m_Name: UnityChan2D
   m_TagString: Player
   m_Icon: {fileID: 0}

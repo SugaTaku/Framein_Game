@@ -16,10 +16,10 @@ TagManager:
   - 
   - 
   - Ground
-  - 
-  - 
-  - 
-  - 
+  - Player
+  - PlayerDamaged
+  - Enemy
+  - EnemyDamaged
   - 
   - 
   - 
