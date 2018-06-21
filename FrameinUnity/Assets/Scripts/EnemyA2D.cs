@@ -8,6 +8,9 @@ public class EnemyA2D : MonoBehaviour
     public int speed = -3;
     public GameObject explosion;
 
+    public int attackPoint = 10;
+    public HPGauge2D lifeScript;
+
     void Start()
     {
         rigidbody2D = GetComponent<Rigidbody2D>();
@@ -24,6 +27,16 @@ public class EnemyA2D : MonoBehaviour
         {
             Destroy(gameObject);
             Instantiate(explosion, transform.position, transform.rotation);
+        }
+    }
+
+    void OnCollisionEnter2D(Collision2D col)
+    {
+        //UnityChanとぶつかった時
+        if (col.gameObject.tag == "Player")
+        {
+            //LifeScriptのLifeDownメソッドを実行
+            lifeScript.LifeDown(attackPoint);
         }
     }
 }
