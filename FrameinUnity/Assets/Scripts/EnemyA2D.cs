@@ -7,13 +7,15 @@ public class EnemyA2D : MonoBehaviour
     Rigidbody2D rigidbody2D;
     public int speed = -3;
     public GameObject explosion;
+    public GameObject item;
 
     public int attackPoint = 10;
-    public HPGauge2D lifeScript;
+    private HPGauge2D lifeScript;
 
     void Start()
     {
         rigidbody2D = GetComponent<Rigidbody2D>();
+        lifeScript = GameObject.FindGameObjectWithTag("HP").GetComponent<HPGauge2D>();
     }
 
     void Update()
@@ -27,6 +29,12 @@ public class EnemyA2D : MonoBehaviour
         {
             Destroy(gameObject);
             Instantiate(explosion, transform.position, transform.rotation);
+
+            //四分の一の確率で回復アイテムを落とす
+            if (Random.Range(0, 4) == 0)
+            {
+                Instantiate(item, transform.position, transform.rotation);
+            }
         }
     }
 
