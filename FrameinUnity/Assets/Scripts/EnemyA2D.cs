@@ -12,6 +12,11 @@ public class EnemyA2D : MonoBehaviour
     public int attackPoint = 10;
     private HPGauge2D lifeScript;
 
+    //メインカメラのタグ名　constは定数(絶対に変わらない値)
+    private const string MAIN_CAMERA_TAG_NAME = "MainCamera";
+    //カメラに映っているかの判定
+    private bool _isRendered = false;
+
     void Start()
     {
         rigidbody2D = GetComponent<Rigidbody2D>();
@@ -20,20 +25,31 @@ public class EnemyA2D : MonoBehaviour
 
     void Update()
     {
-        rigidbody2D.velocity = new Vector2(speed, rigidbody2D.velocity.y);
+        if (_isRendered)
+        {
+            rigidbody2D.velocity = new Vector2(speed, rigidbody2D.velocity.y);
+        }
+
+        if (gameObject.transform.position.y < Camera.main.transform.position.y - 8 ||
+        gameObject.transform.position.x < Camera.main.transform.position.x - 10)
+        {
+            Destroy(gameObject);
+        }
     }
 
     void OnTriggerEnter2D(Collider2D col)
     {
-        if (col.tag == "Bullet")
+        if (_isRendered)
         {
-            Destroy(gameObject);
-            Instantiate(explosion, transform.position, transform.rotation);
-
-            //四分の一の確率で回復アイテムを落とす
-            if (Random.Range(0, 4) == 0)
+            if (col.tag == "Bullet")
             {
-                Instantiate(item, transform.position, transform.rotation);
+                Destroy(gameObject);
+                Instantiate(explosion, transform.position, transform.rotation);
+                //四分の一の確率で回復アイテムを落とす
+                if (Random.Range(0, 4) == 0)
+                {
+                    Instantiate(item, transform.position, transform.rotation);
+                }
             }
         }
     }
@@ -45,6 +61,16 @@ public class EnemyA2D : MonoBehaviour
         {
             //LifeScriptのLifeDownメソッドを実行
             lifeScript.LifeDown(attackPoint);
+        }
+    }
+
+    //Rendererがカメラに映ってる間に呼ばれ続ける
+    void OnWillRenderObject()
+    {
+        //メインカメラに映った時だけ_isRenderedをtrue
+        if (Camera.current.tag == MAIN_CAMERA_TAG_NAME)
+        {
+            _isRendered = true;
         }
     }
 }
