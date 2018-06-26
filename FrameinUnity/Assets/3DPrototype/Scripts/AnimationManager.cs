@@ -33,7 +33,7 @@ public class AnimationManager : MonoBehaviour
     private float orgColHight;
     private Vector3 orgVectColCenter;
 
-    private GameObject cameraObject;                                // メインカメラへの参照
+    private GameObject mainCamera;                                // メインカメラへの参照
 
 
 
@@ -48,8 +48,9 @@ public class AnimationManager : MonoBehaviour
 
         col = GetComponent<CapsuleCollider>();                      // CapsuleColliderコンポーネントを取得する(カプセル型コリジョン)
         rb = GetComponent<Rigidbody>();
-        //メインカメラを取得する
-        cameraObject = GameObject.FindWithTag("MainCamera");
+
+        mainCamera = GameObject.FindWithTag("MainCamera");          //メインカメラを取得する
+
         // CapsuleColliderコンポーネントのHeight、Centerの初期値を保存する
         orgColHight = col.height;
         orgVectColCenter = col.center;
@@ -87,35 +88,26 @@ public class AnimationManager : MonoBehaviour
 
         if (Input.GetButtonDown("Jump"))
         {   // スペースキーを入力したら
-
             // ステート遷移中でなかったらジャンプできる
                 if (!anim.IsInTransition(0))
                 {
-                    rb.AddForce(Vector3.up * thrust, ForceMode.VelocityChange);
-                    anim.SetBool("Jump", true);         // Animatorにジャンプに切り替えるフラグを送る
+                rb.AddForce(Vector3.up * thrust, ForceMode.Impulse);
+                    anim.SetBool("Jump", true);                     // Animatorにジャンプに切り替えるフラグを送る
                 }
         }
 
         if (Input.GetButtonDown("Squat"))
-        {   // スペースキーを入力したら
-
-            // アニメーションのステートがLocomotionの最中のみジャンプできる
+        {   // Nキーを入力したら
+            // アニメーションのステートがIdleの最中のみしゃがめる
             if (currentAnimState.fullPathHash == anim.EnumToHash(PlayerAnimState.Idle))
             {
-                anim.SetBool(PlayerAnimState.Squat, true);         // Animatorにジャンプに切り替えるフラグを送る
+                anim.SetBool(PlayerAnimState.Squat, true);          // Animatorにしゃがみに切り替えるフラグを送る
             }
             else if (currentAnimState.fullPathHash == anim.EnumToHash(PlayerAnimState.Squat))
             {
                 anim.SetBool(PlayerAnimState.Squat, false);
             }
         }
-
-
-        // 上下のキー入力でキャラクターを移動させる
-        //transform.localPosition += velocity * Time.fixedDeltaTime;
-
-        // 左右のキー入力でキャラクタをY軸で旋回させる
-        //transform.Rotate(0, h * rotateSpeed, 0);
 
         // 以下、Animatorの各ステート中での処理
         // Locomotion中
@@ -128,6 +120,7 @@ public class AnimationManager : MonoBehaviour
                 resetCollider();
             }
         }
+
         // JUMP中の処理
         // 現在のベースレイヤーがjumpStateの時
         else if (currentAnimState.fullPathHash == anim.EnumToHash(PlayerAnimState.Jump))
@@ -136,7 +129,6 @@ public class AnimationManager : MonoBehaviour
                                                                     // ステートがトランジション中でない場合
             if (!anim.IsInTransition(0))
             {
-
                 // 以下、カーブ調整をする場合の処理
                 if (useCurves)
                 {
@@ -145,8 +137,8 @@ public class AnimationManager : MonoBehaviour
                     // GravityControl:1⇒ジャンプ中（重力無効）、0⇒重力有効
                     float jumpHeight = anim.GetFloat("JumpHeight");
                     float gravityControl = anim.GetFloat("GravityControl");
-                    if (gravityControl > 0)
-                        rb.useGravity = false;  //ジャンプ中の重力の影響を切る
+                    //if (gravityControl > 0)
+                        //rb.useGravity = false;  //ジャンプ中の重力の影響を切る
 
                     // レイキャストをキャラクターのセンターから落とす
                     Ray ray = new Ray(transform.position + Vector3.up, -Vector3.up);
