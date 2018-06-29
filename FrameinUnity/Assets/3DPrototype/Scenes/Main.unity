@@ -13111,13 +13111,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1fb7544fb7de14db5b21bcf73aa9bd4a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  playerAnimState: 0
   animSpeed: 1
   lookSmoother: 3
-  useCurves: 0
+  useCurves: 1
   useCurvesHeight: 0.5
   speed: 3
   thrust: 3
-  locoThreshold: 0.05
+  locomotionThreshold: 0.05
 --- !u!1001 &2046541966
 Prefab:
   m_ObjectHideFlags: 0

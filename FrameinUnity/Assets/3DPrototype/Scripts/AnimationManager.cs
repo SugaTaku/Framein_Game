@@ -1,6 +1,8 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityStandardAssets.CrossPlatformInput;
 
 // 必要なコンポーネントの列記
 [RequireComponent(typeof(Animator))]
@@ -9,11 +11,11 @@ using UnityEngine;
 
 public class AnimationManager : MonoBehaviour
 {
-    public PlayerAnimState playerAnimState;                         // プレイヤーのアニメーターステート
-
     private Animator anim;                                          // キャラにアタッチされるアニメーターへの参照
     private Rigidbody rb;
-    private CapsuleCollider col;                                    // キャラクターコントローラ（カプセルコライダ）の参照
+    private CapsuleCollider col;                                    // キャラのカプセルコライダの参照
+
+    public PlayerAnimState playerAnimState;                         // プレイヤーのアニメーターステート
     private AnimatorStateInfo currentAnimState;                     // BaseLayerで使われる、アニメーターの現在の状態の参照
 
     public float animSpeed = 1.5f;                                  // アニメーション再生速度設定
@@ -22,26 +24,56 @@ public class AnimationManager : MonoBehaviour
                                                                     // このスイッチが入っていないとカーブは使われない
     public float useCurvesHeight = 0.5f;                            // カーブ補正の有効高さ（地面をすり抜けやすい時には大きくする）
 
-    // キャラクターコントローラ用パラメータ
-    public float speed = 3.0f;                                      // 移動速度
-    public float thrust = 3.0f;                                     // ジャンプ力
-    public float locomotionThreshold = 0.05f;                             // Locomotion移行のしきい値
+    [Serializable]
+    public class MovementSettings
+    {
+        // プレイヤー操作用パラメータ
+        public float speed = 3.0f;                                  // 移動速度
+        public float jumpForce = 3.0f;                              // ジャンプ力
+        public float locoThresh = 0.05f;                            // 歩行のしきい値(inputの入力量)
 
-    // キャラクターコントローラ(カプセルコライダ)の移動量
-    private Vector3 velocity;
+        public float JumpForce = 30f;
+        public AnimationCurve SlopeCurveModifier = new AnimationCurve(new Keyframe(-90.0f, 1.0f), new Keyframe(0.0f, 1.0f), new Keyframe(90.0f, 0.0f));
+        [HideInInspector] public float CurrentTargetSpeed = 8f;
+
+#if !MOBILE_INPUT
+        public float sneakRate = 0.25f;                             // 忍び歩く際のinputに対する代入値
+        public float walkRate = 0.5f;                               // 歩く際のinputに対する代入値
+#endif
+    }
+
+    [Serializable]
+    public class AdvancedSettings
+    {
+        public float groundThresh = 0.01f;                          // 接地判定のしきい値(コリジョンから地面までの距離)
+        public float stickToGroundHelperDistance = 0.5f; // stops the character
+        public float slowDownRate = 20f; // rate at which the controller comes to a stop when there is no input
+        public bool airControl; // can the user control the direction that is being moved in the air
+        [Tooltip("set it to 0.1 or more if you get stuck in wall")]
+        public float shellOffset; //reduce the radius by that ratio to avoid getting stuck in wall (a value of 0.1f is nice)
+    }
+
+    public MovementSettings movSet = new MovementSettings();
+    //public MouseLook mouseLook = new MouseLook();
+    public AdvancedSettings advSet = new AdvancedSettings();
+
+    private Vector3 velocity;                                       // プレイヤーの移動量
+
+    private float m_YRotation;
+    private Vector3 locoMove;
+    private Vector3 groundNormal;
+    private bool m_Jump, m_PreviouslyGrounded, m_Jumping, isGrounded;
+
     // CapsuleColliderで設定されているコライダのHeight、Centerの初期値を収める変数
     private float orgColHight;
     private Vector3 orgVectColCenter;
 
     private GameObject mainCamera;                                // メインカメラへの参照
 
-
-
-    //Planeに触れているか判定するため
-    private bool isGround;
+    public Vector3 Velocity { get { return velocity; } }
 
     // 初期化
-    void Start()
+    void Awake()
     {
         anim = GetComponent<Animator>();                            // Animatorコンポーネントを取得する
         anim.speed = animSpeed;                                     // Animatorのモーション再生速度に animSpeedを設定する
@@ -54,36 +86,57 @@ public class AnimationManager : MonoBehaviour
         // CapsuleColliderコンポーネントのHeight、Centerの初期値を保存する
         orgColHight = col.height;
         orgVectColCenter = col.center;
+
+        velocity = Vector3.zero;                                    // 移動量の初期化
+    }
+
+    private void Update()
+    {
+        //RotateView();
+
+        if (CrossPlatformInputManager.GetButtonDown("Jump") && !m_Jump)
+        {
+            m_Jump = true;
+        }
     }
 
     // 以下、メイン処理.リジッドボディと絡めるので、FixedUpdate内で処理を行う.
     void FixedUpdate()
     {
-        currentAnimState = anim.GetCurrentAnimatorStateInfo(0);     // 参照用のステート変数にBase Layer (0)の現在のステートを設定する
+        currentAnimState = anim.GetCurrentAnimatorStateInfo(0);     // 参照用のステート変数にBaseLayer(0)の現在のステートを設定する
 
-        float h = Input.GetAxis("Horizontal");                      // 入力デバイスの水平軸をhで定義
-        anim.SetFloat("Speed", h);                                  // Animator側で設定している"Speed"パラメータにhを渡す
+        CheckGrounded();                                            // 接地判定
+        float input = GetInput();                                   // 入力取得
 
         // キャラクターの移動処理
-        if (h > locomotionThreshold || h < -locomotionThreshold)    // hがLocomotion移行のしきい値を超えている場合
+        if (Mathf.Abs(input) > movSet.locoThresh)                   // inputがしきい値を超えている場合
         {
             anim.SetBool(PlayerAnimState.Locomotion, true);
-            rb.velocity = new Vector3(speed * h, 0, 0);             // 移動速度と方向をベクトルに掛ける
-            if (h > locomotionThreshold)                            // 右を向く
-            {
-                transform.rotation = Quaternion.Euler(0, 90, 0);
-            }
-            else if (h < -locomotionThreshold)                      // 左を向く
-            {
-                transform.rotation = Quaternion.Euler(0, 270, 0);
-            }
+
+            locoMove = Vector3.ProjectOnPlane(locoMove, groundNormal);
+            rb.velocity = new Vector3(movSet.speed * input, 0, 0);  // 移動速度と方向をベクトルに掛ける
+
+            transform.rotation = Quaternion.Euler
+                (0, 90 * Mathf.Sign(input), 0);                     // 方向転換(inputの正負を取得して掛ける)
         }
         else
         {
             anim.SetBool(PlayerAnimState.Locomotion, false);
         }
 
-        currentAnimState = anim.GetCurrentAnimatorStateInfo(0);     // 参照用のステート変数にBaseLayer(0)の現在のステートを設定する
+        // always move along the camera forward as it is the direction that it being aimed at
+        Vector3 desiredMove = cam.transform.forward * input.y + cam.transform.right * input.x;
+        desiredMove = Vector3.ProjectOnPlane(desiredMove, m_GroundContactNormal).normalized;
+
+        desiredMove.x = desiredMove.x * movementSettings.CurrentTargetSpeed;
+        desiredMove.z = desiredMove.z * movementSettings.CurrentTargetSpeed;
+        desiredMove.y = desiredMove.y * movementSettings.CurrentTargetSpeed;
+        if (m_RigidBody.velocity.sqrMagnitude <
+            (movementSettings.CurrentTargetSpeed * movementSettings.CurrentTargetSpeed))
+        {
+            m_RigidBody.AddForce(desiredMove * SlopeMultiplier(), ForceMode.Impulse);
+        }
+
         rb.useGravity = true;                                       // ジャンプ中に重力を切るので、それ以外は重力の影響を受けるようにする
 
         if (Input.GetButtonDown("Jump"))
@@ -189,6 +242,51 @@ public class AnimationManager : MonoBehaviour
                 anim.SetBool("Rest", false);
             }
         }
+
+
+
+        if ((Mathf.Abs(input) > float.Epsilon || Mathf.Abs(input) > float.Epsilon) && (advancedSettings.airControl || m_IsGrounded))
+        {
+            // always move along the camera forward as it is the direction that it being aimed at
+            Vector3 desiredMove = cam.transform.forward * input.y + cam.transform.right * input.x;
+            desiredMove = Vector3.ProjectOnPlane(desiredMove, m_GroundContactNormal).normalized;
+
+            desiredMove.x = desiredMove.x * movementSettings.CurrentTargetSpeed;
+            desiredMove.z = desiredMove.z * movementSettings.CurrentTargetSpeed;
+            desiredMove.y = desiredMove.y * movementSettings.CurrentTargetSpeed;
+            if (m_RigidBody.velocity.sqrMagnitude <
+                (movementSettings.CurrentTargetSpeed * movementSettings.CurrentTargetSpeed))
+            {
+                m_RigidBody.AddForce(desiredMove * SlopeMultiplier(), ForceMode.Impulse);
+            }
+        }
+
+        if (m_IsGrounded)
+        {
+            m_RigidBody.drag = 5f;
+
+            if (m_Jump)
+            {
+                m_RigidBody.drag = 0f;
+                m_RigidBody.velocity = new Vector3(m_RigidBody.velocity.x, 0f, m_RigidBody.velocity.z);
+                m_RigidBody.AddForce(new Vector3(0f, movementSettings.JumpForce, 0f), ForceMode.Impulse);
+                m_Jumping = true;
+            }
+
+            if (!m_Jumping && Mathf.Abs(input.x) < float.Epsilon && Mathf.Abs(input.y) < float.Epsilon && m_RigidBody.velocity.magnitude < 1f)
+            {
+                m_RigidBody.Sleep();
+            }
+        }
+        else
+        {
+            m_RigidBody.drag = 0f;
+            if (m_PreviouslyGrounded && !m_Jumping)
+            {
+                StickToGroundHelper();
+            }
+        }
+        m_Jump = false;
     }
 
     void OnGUI()
@@ -269,6 +367,47 @@ public class AnimationManager : MonoBehaviour
     // 別のCollider、今回はPlaneに触れているかどうかを判断する
     void OnCollisionStay(Collision c)
     {
-        isGround = true;
+        isGrounded = true;
+    }
+
+    private float GetInput()
+    {
+        float input = Input.GetAxis("Horizontal");                  // 水平入力をinputとして定義
+
+        // PC操作時の入力分岐
+#if !MOBILE_INPUT
+        if (Mathf.Abs(input) > movSet.locoThresh)
+        {
+            if (Input.GetButton("Sneak"))
+                input = movSet.sneakRate;                           // 忍び歩く
+            
+            if (Input.GetButton("Walk"))
+                input = movSet.walkRate;                            // 歩く
+        }
+#endif
+        anim.SetFloat("Speed", input);                              // Animatorの"Speed"パラメータにinputを渡す
+
+        return input;
+    }
+
+    private void CheckGrounded()
+    {
+        m_PreviouslyGrounded = isGrounded;
+        RaycastHit hitInfo;
+        if (Physics.SphereCast(transform.position, col.radius * (1.0f - advSet.shellOffset), Vector3.down, out hitInfo,
+                               ((col.height / 2f) - col.radius) + advSet.groundThresh, Physics.AllLayers, QueryTriggerInteraction.Ignore))
+        {
+            isGrounded = true;
+            m_GroundContactNormal = hitInfo.normal;
+        }
+        else
+        {
+            m_IsGrounded = false;
+            m_GroundContactNormal = Vector3.up;
+        }
+        if (!m_PreviouslyGrounded && m_IsGrounded && m_Jumping)
+        {
+            m_Jumping = false;
+        }
     }
 }
